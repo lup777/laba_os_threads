@@ -5,58 +5,197 @@
 #include <gtk/gtk.h>
 #include <string>
 #include <sstream>
+#include <unistd.h>
+#include <stdlib.h>
+#include <iostream>
+#include <string.h>
 
 using namespace std;
 
-#define NUM_OF_THREADS 10
+#define NUM_OF_THREADS 8
 
 #define bool int
 #define true 1
 #define false 0
 
-typedef struct
+void create_thread(int num, int wait);
+static gboolean set_text_buffer(void *data);
+
+struct DispatchData {
+    GtkTextBuffer *buffer;
+    char* output_str;
+    string str;    
+};
+
+class CONTEXT
 {
-  pthread_t threads[NUM_OF_THREADS];
-  GtkTextBuffer *buffer;
-  string txt;
-} CONTEXT;
+ private:
+    pthread_t threads[NUM_OF_THREADS];
+    string txt;
+    pthread_mutex_t thread_mutex;
+    pthread_mutex_t txt_mutex;
+    pthread_mutex_t buffer_mutex;
+    pthread_mutex_t print_mutex;
+    GtkTextBuffer *buffer;
+
+ public:
+
+  CONTEXT()
+      {
+          pthread_mutex_init( &thread_mutex, NULL );
+          pthread_mutex_init( &txt_mutex, NULL );
+          pthread_mutex_init( &buffer_mutex, NULL );
+          pthread_mutex_init( &print_mutex, NULL );
+          buffer = NULL;
+      }
+
+  void add_line(string str)
+  {
+      pthread_mutex_lock(&print_mutex);
+      string tmp_txt = get_txt();
+      tmp_txt += str + string("\n");
+
+      //gtk_text_buffer_set_text (context.buffer, tmp_txt.c_str(), tmp_txt.length());
+      //set_text_buffer(tmp_txt);
+      struct DispatchData *data = g_new0(struct DispatchData, 1);
+      data->output_str = g_strdup_printf("%s", tmp_txt.c_str());
+      data->buffer = buffer;
+      gdk_threads_add_idle(set_text_buffer, data);
+
+      set_txt(tmp_txt);
+
+      cout << tmp_txt.c_str() << endl;
+      pthread_mutex_unlock(&print_mutex);
+  }
+
+
+  string get_txt(void)
+  {
+      pthread_mutex_lock(&txt_mutex);
+      string tmp = txt;
+      pthread_mutex_unlock(&txt_mutex);
+      return txt;
+  }
+
+  void set_txt(string new_txt)
+  {
+      pthread_mutex_lock(&txt_mutex);
+      txt = new_txt;
+      pthread_mutex_unlock(&txt_mutex);
+  }
+  
+  pthread_t get_tid(int num)
+    {
+        pthread_mutex_lock(&thread_mutex);
+        pthread_t tmp = threads[num];
+        pthread_mutex_unlock(&thread_mutex);
+        return tmp;
+    }
+
+  void set_tid(int num, pthread_t pid)
+    {
+        pthread_mutex_lock(&thread_mutex);
+        threads[num] = pid;
+        pthread_mutex_unlock(&thread_mutex);
+    }
+
+  void set_buffer_pointer(GtkTextBuffer *buffer_)
+  {
+      pthread_mutex_lock(&buffer_mutex);
+      buffer = buffer_;
+      pthread_mutex_unlock(&buffer_mutex);
+  }
+  
+  void init_text_buffer(void)
+  {
+      pthread_mutex_lock(&buffer_mutex);
+      //buffer = gtk_text_buffer_new(NULL);
+      pthread_mutex_unlock(&buffer_mutex);
+  }
+  
+
+};
+
+
+
+//static gboolean set_text_buffer(struct DispatchData *data)
+static gboolean set_text_buffer(void *vdata)
+{
+    struct DispatchData *data = (struct DispatchData *)vdata;
+    gtk_text_buffer_set_text (data->buffer, data->output_str, strlen(data->output_str));
+    g_free(data);
+    return G_SOURCE_REMOVE;
+}
+
 
 CONTEXT context;
 
-void work(void);
-void add_line(string str);
-
-void *thread_func(void* param)
+void *thread_x(void *param)
 {
-  int * pnum = (int*)param;
-  int num = *pnum;
+    int* p_num = (int*)param;
+    int num = *p_num;
+    char name = 'A';
+    switch(num)
+        {
+        case 1: name = 'A'; break;
+        case 2: name = 'B'; break;
+        case 3: name = 'C'; break;
+        case 4: name = 'D'; break;
+        case 5: name = 'E'; break;
+        case 6: name = 'F'; break;
+        case 7: name = 'G'; break;
+        case 8: name = 'H'; break;
+        case 9: name = 'K'; break;
+        default:
+            printf("\nFATAL ERROR !\n\n");
+            exit(1);
+        }
+  
 
-  {
-    stringstream tmp;
-    tmp << "thread " << num << " >>> ";
-    add_line(tmp.str());
-  }
+    {
+        stringstream tmp;
+        tmp << "thread " << name << " >>>";
+        context.add_line(tmp.str());
+    }
+    
+    sleep(1);
 
+    {
+        stringstream tmp;
+        tmp << "thread " << name << " <<<";
+        context.add_line(tmp.str());
+    }
 
-  {
-    stringstream tmp;
-    tmp << "thread " << num << " <<< ";
-    add_line(tmp.str());
-  }
+}
+
+void* work(void* param)
+{
+  create_thread(1, true);
+
+  create_thread(2, false);
+ 
+  create_thread(3, false);
+
+  pthread_join(context.get_tid(3), NULL);
+  pthread_join(context.get_tid(2), NULL);
+  cout << "the end" << endl;
 }
 
 void create_thread(int num, int wait)
 {
   pthread_attr_t attr;
+  pthread_t tid;
   pthread_attr_init( &attr );
-  pthread_t* p_tid;
-  p_tid = context.threads + num;
-  
-  pthread_create( p_tid, &attr, thread_func, (void*)(&num) );
+
+  int* p_param = new int;
+  *p_param = num;
+  pthread_create( &tid, &attr, thread_x, (void*)p_param );
+
+  context.set_tid(num, tid);
 
   if(wait == true)
     { //wait for thread ends
-      pthread_join(*p_tid, NULL);
+      pthread_join(tid, NULL);
     }
 }
 
@@ -66,18 +205,23 @@ activate (GtkApplication* app,
 {
   GtkWidget *window;
   GtkWidget *view;
-  //GtkTextBuffer *buffer;
+  GtkTextBuffer *buffer;
 
   window = gtk_application_window_new (app);
   gtk_window_set_title (GTK_WINDOW (window), "Window");
   gtk_window_set_default_size (GTK_WINDOW (window), 200, 200);
-  gtk_widget_show_all (window);
+  //gtk_widget_show_all (window);
 
   //text widget
 
   view = gtk_text_view_new ();
-  context.buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
-  add_line(string("Hello!"));
+
+  buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
+
+  context.set_buffer_pointer(buffer);
+  //context.init_text_buffer();
+  
+  //add_line(string("Hello!"));
 
   /* Change left margin throughout the widget */
   gtk_text_view_set_left_margin (GTK_TEXT_VIEW (view), 30);
@@ -86,28 +230,22 @@ activate (GtkApplication* app,
   gtk_container_add (GTK_CONTAINER (window), view);
 
   gtk_widget_show_all (window);
+  cout << "started " << endl;
+  {
+      pthread_t tid;
+      pthread_attr_t attr;
+      pthread_attr_init( &attr );
+      
+      pthread_create( &tid, &attr, work, (void*)NULL );
+  }
 
-  work();
 }
-
-void add_line(string str)
-{
-  context.txt += str + string("\n");
-  gtk_text_buffer_set_text (context.buffer, context.txt.c_str(), context.txt.length());
-}
-
-void work(void)
-{
-  create_thread(1, true);
-  
-  create_thread(2, true);
-}
-
 
 int main(int argc, char **argv)
 {
   GtkApplication *app;
   int status;
+  
 
   app = gtk_application_new ("org.gtk.example", G_APPLICATION_FLAGS_NONE);
   g_signal_connect (app, "activate", G_CALLBACK (activate), NULL);
