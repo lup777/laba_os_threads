@@ -12,7 +12,7 @@
 
 using namespace std;
 
-#define NUM_OF_THREADS 8
+#define NUM_OF_THREADS 10
 
 #define bool int
 #define true 1
@@ -168,17 +168,41 @@ void *thread_x(void *param)
 
 }
 
+/*case 1: name = 'A'; break;
+        case 2: name = 'B'; break;
+        case 3: name = 'C'; break;
+        case 4: name = 'D'; break;
+        case 5: name = 'E'; break;
+        case 6: name = 'F'; break;
+        case 7: name = 'G'; break;
+        case 8: name = 'H'; break;
+        case 9: name = 'K'; break;*/
+
 void* work(void* param)
 {
-  create_thread(1, true);
+    create_thread(1, true); //A
 
-  create_thread(2, false);
- 
-  create_thread(3, false);
+    create_thread(2, false); // B
+    create_thread(3, false); // C
 
-  pthread_join(context.get_tid(3), NULL);
-  pthread_join(context.get_tid(2), NULL);
-  cout << "the end" << endl;
+    pthread_join(context.get_tid(2), NULL); // B
+
+    create_thread(4, false); // D
+    create_thread(5, false); // E
+    create_thread(6, false); // F
+    pthread_join(context.get_tid(4), NULL); // D
+    pthread_join(context.get_tid(5), NULL); // E
+    pthread_join(context.get_tid(6), NULL); // F
+
+    create_thread(7, false); // G
+    create_thread(8, false); // H
+    pthread_join(context.get_tid(7), NULL); // G
+    pthread_join(context.get_tid(8), NULL); // H
+    pthread_join(context.get_tid(3), NULL); // C
+
+    create_thread(9, true); // K
+  
+    cout << "the end" << endl;
 }
 
 void create_thread(int num, int wait)
@@ -219,9 +243,6 @@ activate (GtkApplication* app,
   buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (view));
 
   context.set_buffer_pointer(buffer);
-  //context.init_text_buffer();
-  
-  //add_line(string("Hello!"));
 
   /* Change left margin throughout the widget */
   gtk_text_view_set_left_margin (GTK_TEXT_VIEW (view), 30);
