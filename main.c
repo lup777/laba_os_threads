@@ -248,7 +248,27 @@ activate (GtkApplication* app,
   gtk_text_view_set_left_margin (GTK_TEXT_VIEW (view), 30);
 
 
-  gtk_container_add (GTK_CONTAINER (window), view);
+  //gtk_container_add (GTK_CONTAINER (window), view);
+
+  //BOX
+  GtkWidget* box1 = gtk_hbox_new (FALSE, 0);
+  gtk_container_add (GTK_CONTAINER (window), box1);
+
+  
+  
+  // IMAGE
+  //GtkWidget * img_widget = gtk_image_new();
+  GtkImage img;
+  
+  GtkWidget * img_widget = gtk_image_new_from_file("022vWqAz0gk.jpg");
+  gtk_image_set_from_file(&img, "/home/alexander/tmp/screenshot0.jpg");
+  
+  //gtk_container_add (GTK_CONTAINER (window), img_widget);
+  gtk_widget_queue_draw(img_widget);
+  //IMAGE
+
+  gtk_box_pack_start (GTK_BOX(box1), img_widget, TRUE, TRUE, 0);
+  gtk_box_pack_start(GTK_BOX (box1), view, TRUE, TRUE, 0);
 
   gtk_widget_show_all (window);
   cout << "started " << endl;
