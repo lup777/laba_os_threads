@@ -258,15 +258,8 @@ activate (GtkApplication* app,
   
   // IMAGE
   //GtkWidget * img_widget = gtk_image_new();
-<<<<<<< HEAD
   
   GtkWidget * img_widget = gtk_image_new_from_file("022vWqAz0gk.jpg");
-=======
-  GtkImage img;
-  
-  GtkWidget * img_widget = gtk_image_new_from_file("022vWqAz0gk.jpg");
-  gtk_image_set_from_file(&img, "/home/alexander/tmp/screenshot0.jpg");
->>>>>>> b27745712c46460b7a10ecfb6970d17d67ab7205
   
   //gtk_container_add (GTK_CONTAINER (window), img_widget);
   gtk_widget_queue_draw(img_widget);
